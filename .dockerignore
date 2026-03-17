@@ -1,0 +1,13 @@
+node_modules
+client/node_modules
+server/node_modules
+dist
+build
+.git
+.cursor
+.env
+.env.*
+client/.env
+client/.env.*
+server/.env
+server/.env.*
