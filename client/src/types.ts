@@ -1,4 +1,4 @@
-export type DeliveryMode = "self" | "delivery";
+export type DeliveryMode = "selfpickup" | "delivery";
 export type PayStatus = "paid" | "pending" | "deposit";
 export type RepairStatus = "open" | "inprogress" | "done";
 export type RepairKind = "repair" | "claim";
@@ -42,6 +42,8 @@ export interface Sale {
   delivery: DeliveryMode;
   date?: string;
   note?: string | null;
+  customerName?: string | null;
+  deliveryAddress?: string | null;
   paymentSlipImage?: string | null;
   paidAt?: string | null;
 }
@@ -56,11 +58,20 @@ export interface RepairItem {
   kind: RepairKind;
   status: RepairStatus;
   date: string;
+  /** Base64 data URLs (data:image/...) */
+  images?: string[];
 }
 
 export interface InventorySummaryItem {
   type: string;
   qty: number;
+}
+
+export interface ProductItem {
+  id: string;
+  name: string;
+  onsitePrice: number;
+  deliveryPrice: number;
 }
 
 export interface InventoryMovement {

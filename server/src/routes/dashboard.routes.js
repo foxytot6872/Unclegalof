@@ -21,7 +21,8 @@ router.get(
   validate(queryMonthYearSchema, "query"),
   async (req, res, next) => {
     try {
-      const { month, year } = req.query;
+      const month = Number(req.query.month);
+      const year = Number(req.query.year);
       const start = new Date(Date.UTC(year, month - 1, 1));
       const end = new Date(Date.UTC(year, month, 1));
       

@@ -16,6 +16,17 @@ enum UserRole {
   DELIVERY
 }
 
+enum Status {
+  paid
+  pending
+  deposit
+}
+
+enum DeliveryMethod {
+  selfpickup
+  delivery
+}
+
 model User {
   id                    String                 @id @default(uuid()) @db.Uuid
   fullName              String
@@ -72,14 +83,15 @@ model SaleRecord {
   promoDiscount        Int                    @default(0)
   manualDiscount       Int                    @default(0)
   manualDiscountReason String?
-  status               String
+  status               Status                 @default(pending)
   appliedPromotion     String?                @db.Uuid
   amount               Int
-  deliveryType         String
+  deliveryType         DeliveryMethod         @default(selfpickup)
   deliveryRange        Int?
   workerFee            Int                    @default(0)
   workerFeeType        String?
   customerName         String?
+  deliveryAddress      String?                @db.Text
   remarks              String?
   paymentSlipImage     String?                @db.Text
   paidAt               DateTime?
@@ -107,6 +119,8 @@ model RepairRecord {
   kind         String       @default("repair")
   status       String       @default("open")
   amount       Int
+  /// Base64 data URLs (data:image/...), same pattern as SaleRecord.paymentSlipImage
+  images       Json         @default("[]")
   deskItem     DeskItem     @relation(fields: [deskItemId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   reporter     User         @relation(fields: [reportedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
 

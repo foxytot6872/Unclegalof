@@ -21,9 +21,9 @@ export function createApp() {
     })
   );
 
-  // Security: Body parser with size limit
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  // Security: Body parser with size limit (repairs / payment slips may include several base64 images)
+  app.use(express.json({ limit: "25mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
   // Security: General rate limiting (applied to all routes)
   app.use("/api", generalRateLimiter);

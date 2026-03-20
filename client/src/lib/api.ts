@@ -3,6 +3,7 @@ import type {
   CurrentUserResponse,
   AuthUser,
   InventorySummaryResponse,
+  ProductItem,
   OwnerDashboard,
   PromotionsResponse,
   RepairsResponse,
@@ -30,12 +31,23 @@ type CreateRepairPayload = {
   reason: string;
   kind: "repair" | "claim";
   date: string;
+  images?: string[];
+};
+
+type UploadRepairImagePayload = {
+  imageData: string;
 };
 
 type AddInventoryStockPayload = {
   type: string;
   qty: number;
   note: string;
+};
+
+type InventoryProductPayload = {
+  name: string;
+  onsitePrice: number;
+  deliveryPrice: number;
 };
 
 type CreateSalePayload = {
@@ -47,10 +59,11 @@ type CreateSalePayload = {
   discount: number;
   manualDisc: number;
   manualReason: string;
-  delivery: "self" | "delivery";
+  delivery: "selfpickup" | "delivery";
   km: number | null;
   zoneName: string | null;
   addr: string;
+  deliveryAddress: string;
   note: string;
   wFee: number;
   wType: "po" | "ice";
@@ -104,8 +117,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   });
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error || `Request failed: ${response.status}`);
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      details?: Array<{ path?: string; message?: string }>;
+    };
+    const detailMsg =
+      Array.isArray(body.details) && body.details.length > 0
+        ? body.details.map((d) => d.message).filter(Boolean).join("; ")
+        : "";
+    throw new Error(detailMsg || body.error || `Request failed: ${response.status}`);
   }
 
   return response.json() as Promise<T>;
@@ -139,11 +159,19 @@ export const api = {
   repairs: () => request<RepairsResponse>("/repairs"),
   createRepair: (payload: CreateRepairPayload) =>
     request("/repairs", { method: "POST", body: JSON.stringify(payload) }),
+  uploadRepairImage: (id: string, payload: UploadRepairImagePayload) =>
+    request(`/repairs/${id}/images`, { method: "PATCH", body: JSON.stringify(payload) }),
   updateRepairStatus: (id: string, status: RepairStatus) =>
     request(`/repairs/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   deleteRepair: (id: string) => request(`/repairs/${id}`, { method: "DELETE" }),
   
   // Inventory
+  inventoryProducts: () => request<{ items: ProductItem[] }>("/inventory/products"),
+  createInventoryProduct: (payload: InventoryProductPayload) =>
+    request<ProductItem>("/inventory/products", { method: "POST", body: JSON.stringify(payload) }),
+  updateInventoryProduct: (id: string, payload: Partial<InventoryProductPayload>) =>
+    request<ProductItem>(`/inventory/products/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteInventoryProduct: (id: string) => request(`/inventory/products/${id}`, { method: "DELETE" }),
   inventorySummary: () => request<InventorySummaryResponse>("/inventory/summary"),
   addInventoryStock: (payload: AddInventoryStockPayload) =>
     request("/inventory/movements/stock-in", { method: "POST", body: JSON.stringify(payload) }),

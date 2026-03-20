@@ -16,6 +16,7 @@ type StaffFormState = {
   delivery: DeliveryMode;
   km: number | "";
   addr: string;
+  deliveryAddress: string;
   note: string;
 };
 
@@ -36,9 +37,10 @@ const initialForm = (today: string): StaffFormState => ({
   discount: 0,
   manualDisc: 0,
   manualReason: "",
-  delivery: "self",
+  delivery: "selfpickup",
   km: "",
   addr: "",
+  deliveryAddress: "",
   note: ""
 });
 
@@ -50,7 +52,6 @@ export default function StaffPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [uploadingSaleId, setUploadingSaleId] = useState<string | null>(null);
-  const [updatingSaleId, setUpdatingSaleId] = useState<string | null>(null);
   const [form, setForm] = useState<StaffFormState>(initialForm(today));
 
   const selectedProduct = useMemo(
@@ -194,6 +195,7 @@ export default function StaffPage() {
         km: form.delivery === "delivery" ? Number(form.km || 0) : null,
         zoneName: zone?.label || null,
         addr: form.addr,
+        deliveryAddress: form.deliveryAddress,
         note: form.note,
         wFee: workerFee,
         wType: form.delivery === "delivery" ? "po" : "ice",
@@ -252,19 +254,6 @@ export default function StaffPage() {
     } finally {
       setUploadingSaleId(null);
       event.target.value = "";
-    }
-  }
-
-  async function handleMarkSalePaid(saleId: string): Promise<void> {
-    try {
-      setUpdatingSaleId(saleId);
-      await api.updateSaleStatus(saleId, { status: "paid" });
-      await loadPage();
-    } catch (error) {
-      console.error("Failed to update sale status:", error);
-      alert(error instanceof Error ? error.message : "Failed to update sale status");
-    } finally {
-      setUpdatingSaleId(null);
     }
   }
 
@@ -356,7 +345,7 @@ export default function StaffPage() {
         <div className="dtoggle">
           <label>วิธีรับสินค้า</label>
           <div className="dopts">
-            <button type="button" className={`dopt${form.delivery === "self" ? " sel" : ""}`} onClick={() => handleDeliveryChange("self")}>
+            <button type="button" className={`dopt${form.delivery === "selfpickup" ? " sel" : ""}`} onClick={() => handleDeliveryChange("selfpickup")}>
               🏭 รับที่โกดัง
             </button>
             <button type="button" className={`dopt${form.delivery === "delivery" ? " sel" : ""}`} onClick={() => handleDeliveryChange("delivery")}>
@@ -374,8 +363,19 @@ export default function StaffPage() {
                 <input type="number" value={form.km} onChange={(e) => setForm({ ...form, km: e.target.value === "" ? "" : Number(e.target.value) })} />
               </div>
               <div className="fg">
-                <label>ชื่อลูกค้า / หมายเหตุ</label>
-                <input type="text" value={form.addr} onChange={(e) => setForm({ ...form, addr: e.target.value })} />
+                <label>ชื่อลูกค้า</label>
+                <input type="text" value={form.addr} onChange={(e) => setForm({ ...form, addr: e.target.value })} placeholder="ชื่อผู้รับ / ติดต่อ" />
+              </div>
+            </div>
+            <div className="frow s1">
+              <div className="fg">
+                <label>ที่อยู่จัดส่ง</label>
+                <textarea
+                  value={form.deliveryAddress}
+                  onChange={(e) => setForm({ ...form, deliveryAddress: e.target.value })}
+                  placeholder="บ้านเลขที่ ซอย ถนน ตำบล อำเภอ จังหวัด รหัสไปรษณีย์"
+                  rows={3}
+                />
               </div>
             </div>
             {zone && (
@@ -457,19 +457,6 @@ export default function StaffPage() {
                       ดูสลิป
                     </a>
                   )}
-                  <label className="sale-paid-toggle">
-                    <input
-                      type="checkbox"
-                      checked={sale.payStatus === "paid"}
-                      disabled={sale.payStatus === "paid" || !sale.paymentSlipImage || updatingSaleId === sale.id}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          void handleMarkSalePaid(sale.id);
-                        }
-                      }}
-                    />
-                    <span>อัปเดตเป็นชำระแล้ว</span>
-                  </label>
                 </div>
               </div>
               <div className="sitem-r">

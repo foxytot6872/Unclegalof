@@ -33,6 +33,125 @@ const paramsIdSchema = z.object({
   id: z.string().uuid(),
 });
 
+const inventoryProductSchema = z.object({
+  name: z.string().min(1).max(200),
+  onsitePrice: z.number().int().nonnegative(),
+  deliveryPrice: z.number().int().nonnegative(),
+});
+
+// GET /api/inventory/products - Get all products available for inventory management
+router.get(
+  "/products",
+  authenticate,
+  requireInventory,
+  async (req, res, next) => {
+    try {
+      const items = await prisma.deskItem.findMany({
+        orderBy: { name: "asc" },
+      });
+
+      res.json({ items });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/inventory/products - Create a new product
+router.post(
+  "/products",
+  authenticate,
+  requireInventory,
+  writeRateLimiter,
+  validate(inventoryProductSchema),
+  async (req, res, next) => {
+    try {
+      const payload = req.body;
+      const existing = await prisma.deskItem.findUnique({
+        where: { name: payload.name },
+      });
+
+      if (existing) {
+        return res.status(409).json({ error: "Product with this name already exists" });
+      }
+
+      const item = await prisma.deskItem.create({
+        data: {
+          name: payload.name,
+          onsitePrice: payload.onsitePrice,
+          deliveryPrice: payload.deliveryPrice,
+        },
+      });
+
+      res.status(201).json(item);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// PATCH /api/inventory/products/:id - Update a product
+router.patch(
+  "/products/:id",
+  authenticate,
+  requireInventory,
+  writeRateLimiter,
+  validate(paramsIdSchema, "params"),
+  validate(inventoryProductSchema.partial()),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const payload = req.body;
+
+      const existing = await prisma.deskItem.findUnique({
+        where: { id },
+      });
+
+      if (!existing) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      const updated = await prisma.deskItem.update({
+        where: { id },
+        data: payload,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// DELETE /api/inventory/products/:id - Delete a product
+router.delete(
+  "/products/:id",
+  authenticate,
+  requireInventory,
+  writeRateLimiter,
+  validate(paramsIdSchema, "params"),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const existing = await prisma.deskItem.findUnique({
+        where: { id },
+      });
+
+      if (!existing) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      await prisma.deskItem.delete({
+        where: { id },
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // GET /api/inventory/summary - Get inventory summary
 // TODO: Implement when inventory models are added to schema
 router.get(
