@@ -5,6 +5,9 @@ import type {
   InventorySummaryResponse,
   ProductItem,
   OwnerDashboard,
+  PipelineItem,
+  PipelinePriority,
+  PipelineStatus,
   PromotionsResponse,
   RepairsResponse,
   RepairStatus,
@@ -82,6 +85,18 @@ type UploadSalePaymentSlipPayload = {
 type UpdateSaleStatusPayload = {
   status: "paid" | "pending" | "deposit";
 };
+
+type CreatePipelinePayload = {
+  deskItemId: string;
+  qty: number;
+  costEst?: number;
+  date?: string | null;
+  note?: string;
+  status?: PipelineStatus;
+  priority?: PipelinePriority;
+};
+
+type UpdatePipelinePayload = Partial<CreatePipelinePayload>;
 
 type RegisterPayload = {
   fullName: string;
@@ -193,5 +208,13 @@ export const api = {
   
   // Dashboard
   ownerDashboard: (month: number, year: number) =>
-    request<OwnerDashboard>(`/dashboard/owner?month=${month}&year=${year}`)
+    request<OwnerDashboard>(`/dashboard/owner?month=${month}&year=${year}`),
+
+  // Pipeline (owner/admin)
+  pipeline: () => request<{ items: PipelineItem[] }>("/pipeline"),
+  createPipeline: (payload: CreatePipelinePayload) =>
+    request<PipelineItem>("/pipeline", { method: "POST", body: JSON.stringify(payload) }),
+  updatePipeline: (id: string, payload: UpdatePipelinePayload) =>
+    request<PipelineItem>(`/pipeline/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deletePipeline: (id: string) => request(`/pipeline/${id}`, { method: "DELETE" })
 };

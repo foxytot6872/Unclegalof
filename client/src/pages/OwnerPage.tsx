@@ -1,14 +1,30 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ClipboardList, PlusCircle, Tag, X } from "lucide-react";
+import { ClipboardList, PlusCircle, Tag, Truck, X } from "lucide-react";
 import { PaymentSlipLightbox } from "../components/PaymentSlipLightbox";
 import { formatMoney } from "../data/constants";
 import { api } from "../lib/api";
-import type { OwnerDashboard, PromotionAmountType } from "../types";
+import type {
+  OwnerDashboard,
+  PipelineItem,
+  PipelinePriority,
+  PipelineStatus,
+  PromotionAmountType
+} from "../types";
 
 type PromotionFormState = {
   name: string;
   amountType: PromotionAmountType;
   amount: string;
+};
+
+type PipelineFormState = {
+  deskItemId: string;
+  qty: string;
+  costEst: string;
+  expectedDate: string;
+  note: string;
+  status: PipelineStatus;
+  priority: PipelinePriority;
 };
 
 export default function OwnerPage() {
@@ -18,6 +34,17 @@ export default function OwnerPage() {
   const [month] = useState<number>(now.getMonth() + 1);
   const [year] = useState<number>(now.getFullYear());
   const [promoForm, setPromoForm] = useState<PromotionFormState>({ name: "", amountType: "fixed", amount: "" });
+  const [pipelineItems, setPipelineItems] = useState<PipelineItem[]>([]);
+  const [catalogOptions, setCatalogOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [pipeForm, setPipeForm] = useState<PipelineFormState>({
+    deskItemId: "",
+    qty: "1",
+    costEst: "0",
+    expectedDate: "",
+    note: "",
+    status: "planned",
+    priority: "normal"
+  });
   const [updatingSaleId, setUpdatingSaleId] = useState<string | null>(null);
   const [slipPreviewSrc, setSlipPreviewSrc] = useState<string | null>(null);
   const closeSlipPreview = useCallback(() => setSlipPreviewSrc(null), []);
@@ -27,6 +54,19 @@ export default function OwnerPage() {
       setError(null);
       const data = await api.ownerDashboard(month, year);
       setDashboard(data);
+      try {
+        const [pipe, products] = await Promise.all([api.pipeline(), api.getProducts()]);
+        setPipelineItems(pipe.items || []);
+        setCatalogOptions(products.items.map((p) => ({ id: p.id, name: p.name })));
+        setPipeForm((current) => ({
+          ...current,
+          deskItemId: current.deskItemId || products.items[0]?.id || ""
+        }));
+      } catch (pipeErr) {
+        setPipelineItems([]);
+        setCatalogOptions([]);
+        setError(pipeErr instanceof Error ? pipeErr.message : "โหลดแผนสั่งซื้อไม่สำเร็จ");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     }
@@ -77,6 +117,63 @@ export default function OwnerPage() {
       setError(err instanceof Error ? err.message : "Failed to update payment status");
     } finally {
       setUpdatingSaleId(null);
+    }
+  }
+
+  async function addPipeline(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setError(null);
+    const qty = Number(pipeForm.qty);
+    const costEst = Number(pipeForm.costEst);
+    if (!pipeForm.deskItemId || Number.isNaN(qty) || qty < 1) {
+      setError("เลือกสินค้าและจำนวนให้ครบ");
+      return;
+    }
+    try {
+      await api.createPipeline({
+        deskItemId: pipeForm.deskItemId,
+        qty,
+        costEst: Number.isNaN(costEst) ? 0 : Math.max(0, costEst),
+        date: pipeForm.expectedDate.trim()
+          ? new Date(pipeForm.expectedDate).toISOString()
+          : null,
+        note: pipeForm.note.trim(),
+        status: pipeForm.status,
+        priority: pipeForm.priority
+      });
+      setPipeForm((current) => ({
+        ...current,
+        qty: "1",
+        costEst: "0",
+        expectedDate: "",
+        note: ""
+      }));
+      await loadPage();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "เพิ่มแผนสั่งซื้อไม่สำเร็จ");
+    }
+  }
+
+  async function updatePipelineRow(id: string, patch: Partial<{ status: PipelineStatus; priority: PipelinePriority }>): Promise<void> {
+    try {
+      setError(null);
+      await api.updatePipeline(id, patch);
+      await loadPage();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "อัปเดตไม่สำเร็จ");
+    }
+  }
+
+  async function removePipelineRow(id: string): Promise<void> {
+    if (!window.confirm("ลบรายการนี้จากแผนสั่งซื้อ?")) {
+      return;
+    }
+    try {
+      setError(null);
+      await api.deletePipeline(id);
+      await loadPage();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ลบไม่สำเร็จ");
     }
   }
 
@@ -179,6 +276,166 @@ export default function OwnerPage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <h3 className="h-with-icon">
+          <Truck size={20} strokeWidth={2} aria-hidden />
+          แผนสั่งซื้อ / สายการจัดหา
+        </h3>
+        <p style={{ fontSize: 13, color: "var(--gray)", marginBottom: 12 }}>
+          ใช้ติดตามคำสั่งซื้อที่ยังไม่เข้าคลัง (คนละส่วนกับสต็อกจริงในหน้าคลัง)
+        </p>
+        <form onSubmit={addPipeline}>
+          <div className="frow">
+            <div className="fg">
+              <label>สินค้า</label>
+              <select
+                value={pipeForm.deskItemId}
+                onChange={(e) => setPipeForm({ ...pipeForm, deskItemId: e.target.value })}
+                required
+              >
+                <option value="">-- เลือก --</option>
+                {catalogOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="fg">
+              <label>จำนวน</label>
+              <input
+                type="number"
+                min={1}
+                value={pipeForm.qty}
+                onChange={(e) => setPipeForm({ ...pipeForm, qty: e.target.value })}
+                required
+              />
+            </div>
+            <div className="fg">
+              <label>ต้นทุนประมาณ (บาท)</label>
+              <input
+                type="number"
+                min={0}
+                value={pipeForm.costEst}
+                onChange={(e) => setPipeForm({ ...pipeForm, costEst: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="frow">
+            <div className="fg">
+              <label>คาดว่าถึง (ไม่บังคับ)</label>
+              <input
+                type="date"
+                value={pipeForm.expectedDate}
+                onChange={(e) => setPipeForm({ ...pipeForm, expectedDate: e.target.value })}
+              />
+            </div>
+            <div className="fg">
+              <label>สถานะ</label>
+              <select
+                value={pipeForm.status}
+                onChange={(e) => setPipeForm({ ...pipeForm, status: e.target.value as PipelineStatus })}
+              >
+                <option value="planned">วางแผน</option>
+                <option value="ordered">สั่งแล้ว</option>
+                <option value="transit">ระหว่างจัดส่ง</option>
+                <option value="arrived">ถึงแล้ว</option>
+              </select>
+            </div>
+            <div className="fg">
+              <label>ความเร่งด่วน</label>
+              <select
+                value={pipeForm.priority}
+                onChange={(e) => setPipeForm({ ...pipeForm, priority: e.target.value as PipelinePriority })}
+              >
+                <option value="low">ต่ำ</option>
+                <option value="normal">ปกติ</option>
+                <option value="urgent">ด่วน</option>
+              </select>
+            </div>
+          </div>
+          <div className="fg" style={{ marginBottom: 12 }}>
+            <label>หมายเหตุ</label>
+            <input
+              value={pipeForm.note}
+              onChange={(e) => setPipeForm({ ...pipeForm, note: e.target.value })}
+            />
+          </div>
+          <button className="btnok with-icon" type="submit">
+            <PlusCircle size={18} strokeWidth={2} aria-hidden />
+            เพิ่มรายการ
+          </button>
+        </form>
+
+        <div style={{ marginTop: 16 }}>
+          {pipelineItems.length === 0 ? (
+            <div className="empty">
+              <p>ยังไม่มีรายการแผนสั่งซื้อ</p>
+            </div>
+          ) : (
+            <div className="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>สินค้า</th>
+                    <th>จำนวน</th>
+                    <th>ต้นทุนประมาณ</th>
+                    <th>คาดถึง</th>
+                    <th>สถานะ</th>
+                    <th>ความสำคัญ</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pipelineItems.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.productName}</td>
+                      <td>{row.qty}</td>
+                      <td>{formatMoney(row.costEst)}</td>
+                      <td>
+                        {row.expectedDate
+                          ? new Date(row.expectedDate).toLocaleDateString("th-TH")
+                          : "—"}
+                      </td>
+                      <td>
+                        <select
+                          value={row.status}
+                          onChange={(e) => {
+                            void updatePipelineRow(row.id, { status: e.target.value as PipelineStatus });
+                          }}
+                        >
+                          <option value="planned">วางแผน</option>
+                          <option value="ordered">สั่งแล้ว</option>
+                          <option value="transit">ระหว่างจัดส่ง</option>
+                          <option value="arrived">ถึงแล้ว</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={row.priority}
+                          onChange={(e) => {
+                            void updatePipelineRow(row.id, { priority: e.target.value as PipelinePriority });
+                          }}
+                        >
+                          <option value="low">ต่ำ</option>
+                          <option value="normal">ปกติ</option>
+                          <option value="urgent">ด่วน</option>
+                        </select>
+                      </td>
+                      <td>
+                        <button type="button" className="btndel" onClick={() => void removePipelineRow(row.id)}>
+                          ลบ
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </section>
 

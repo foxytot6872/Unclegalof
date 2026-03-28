@@ -113,3 +113,20 @@ export interface InventorySummaryResponse {
   summary: InventorySummaryItem[];
   movements: InventoryMovement[];
 }
+
+export type PipelineStatus = "planned" | "ordered" | "transit" | "arrived";
+export type PipelinePriority = "normal" | "urgent" | "low";
+
+export interface PipelineItem {
+  id: string;
+  deskItemId: string;
+  productName: string;
+  qty: number;
+  costEst: number;
+  expectedDate: string | null;
+  note: string | null;
+  status: PipelineStatus;
+  priority: PipelinePriority;
+  createdAt: string;
+  updatedAt: string;
+}

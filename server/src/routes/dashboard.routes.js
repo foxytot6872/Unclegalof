@@ -68,10 +68,24 @@ router.get(
       });
       
       const baseCosts = payrollRecords.reduce((sum, pr) => sum + pr.baseSalary + (pr.bonus || 0) - (pr.deduction || 0), 0);
-      
-      // Note: Inventory cost calculation would need inventory models
-      const inventoryCost = 0; // TODO: Calculate from inventory when models are added
-      
+
+      const lotsReceivedInMonth = await prisma.inventoryLot.findMany({
+        where: {
+          createdAt: {
+            gte: start,
+            lt: end,
+          },
+        },
+        select: {
+          qty: true,
+          costPerUnit: true,
+        },
+      });
+      const inventoryCost = lotsReceivedInMonth.reduce(
+        (sum, lot) => sum + lot.qty * lot.costPerUnit,
+        0
+      );
+
       const cost = inventoryCost + workerCost + baseCosts;
       const profit = income - cost;
       const margin = income > 0 ? (profit / income) * 100 : 0;

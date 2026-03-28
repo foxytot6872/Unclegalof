@@ -316,7 +316,7 @@ export default function InventoryPage() {
             </button>
             {products.length === 0 && (
               <p style={{ marginTop: 10, fontSize: 12, color: "var(--gray)" }}>
-                Note: Inventory tracking models are not yet implemented. This page shows available products for reference.
+                เพิ่มสินค้าก่อน จึงจะรับเข้าสต็อกได้
               </p>
             )}
           </form>
