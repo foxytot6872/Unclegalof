@@ -17,6 +17,10 @@ type RequestOptions = RequestInit & {
   headers?: HeadersInit;
 };
 
+type RegistrationStatusResponse = {
+  allowOwnerSignup: boolean;
+};
+
 type CreatePromotionPayload = {
   name: string;
   amount: number;
@@ -143,6 +147,7 @@ export const api = {
     request<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
   register: (payload: RegisterPayload) =>
     request<AuthResponse>("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
+  registrationStatus: () => request<RegistrationStatusResponse>("/auth/bootstrap-status"),
   me: () => request<CurrentUserResponse>("/auth/me"),
   
   // Catalog

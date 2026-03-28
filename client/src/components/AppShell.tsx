@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { Armchair, Package, Shield, User, Wrench } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
+import { canAccessRoute } from "../lib/roleRoutes";
 
 const navItems: { to: string; label: string; Icon: LucideIcon }[] = [
   { to: "/staff", label: "พนักงาน", Icon: User },
@@ -13,7 +14,7 @@ const navItems: { to: string; label: string; Icon: LucideIcon }[] = [
 
 export default function AppShell({ children }: PropsWithChildren) {
   const { user, logout } = useAuth();
-  const visibleNavItems = navItems.filter((item) => item.to !== "/owner" || user?.role === "OWNER" || user?.role === "ADMIN");
+  const visibleNavItems = navItems.filter((item) => !user || canAccessRoute(user.role, item.to));
 
   return (
     <>
